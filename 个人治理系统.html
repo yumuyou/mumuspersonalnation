@@ -1,0 +1,1657 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>个人版国家治理系统</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet" />
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  :root {
+    --bg: #fdf6f9;
+    --bg-soft: #fbeef4;
+    --panel: #fffcfe;
+    --ink: #735367;
+    --ink-soft: #b297a6;
+    --line: #f4dde8;
+    --accent: #f2afca;
+    --accent-deep: #d98aae;
+    --gold: #f0c79a;
+    --shadow: rgba(214, 160, 190, 0.18);
+    --good: #a9ddd4;
+    --warn: #f0c79a;
+    --risk: #f0a8b6;
+  }
+  html[data-theme="dark"] {
+    --bg: #2a2029;
+    --bg-soft: #332732;
+    --panel: #382b37;
+    --ink: #f0dde8;
+    --ink-soft: #c2a7b8;
+    --line: #4a3a47;
+    --accent: #e0a8c4;
+    --accent-deep: #e6aecb;
+    --gold: #e6c79e;
+    --shadow: rgba(0, 0, 0, 0.4);
+    --good: #a3d4cc;
+    --warn: #e6c79e;
+    --risk: #e0a3b2;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Baloo 2", "ZCOOL KuaiLe", "PingFang SC", sans-serif;
+    background: var(--bg);
+    background-image: radial-gradient(circle at 15% 20%, rgba(242,175,202,.20), transparent 45%),
+                      radial-gradient(circle at 85% 75%, rgba(170,205,235,.16), transparent 45%),
+                      radial-gradient(circle at 60% 15%, rgba(200,180,225,.14), transparent 40%);
+    color: var(--ink);
+    overflow: hidden;
+    transition: background .4s, color .4s;
+  }
+  /* ===== 顶部仪表盘 ===== */
+  #dashboard {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 30;
+    background: linear-gradient(180deg, var(--panel), var(--bg-soft));
+    border-bottom: 1px solid var(--line);
+    box-shadow: 0 4px 18px var(--shadow);
+    padding: 12px 20px 14px;
+  }
+  .dash-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .brand { font-family: "ZCOOL KuaiLe", "Baloo 2", sans-serif; font-size: 21px; font-weight: 400; letter-spacing: 1px; color: var(--accent-deep); white-space: nowrap; }
+  .brand small { font-size: 12px; color: var(--ink-soft); font-weight: 400; letter-spacing: 1px; }
+  .mainline {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg); border: 2.5px solid var(--line); border-radius: 22px;
+    padding: 6px 14px; font-size: 13px; color: var(--ink-soft);
+  }
+  .mainline b { color: var(--ink); font-weight: 600; }
+  .mainline input {
+    border: none; background: transparent; color: var(--ink);
+    font-family: inherit; font-size: 14px; outline: none; min-width: 160px;
+  }
+  .spacer { flex: 1; }
+  .btn {
+    border: 2.5px solid var(--accent); background: var(--panel); color: var(--accent-deep);
+    border-radius: 22px; padding: 7px 16px; font-family: inherit; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: transform .2s cubic-bezier(.34,1.8,.5,1), background .25s, color .25s;
+    white-space: nowrap; box-shadow: 0 3px 0 var(--accent);
+  }
+  .btn:hover { background: var(--accent); color: #fff; transform: translateY(-2px); }
+  .btn:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--accent); }
+  .btn.ghost { padding: 7px 12px; }
+  /* 下拉按钮 */
+  .dropdown { position: relative; display: inline-block; }
+  .dropdown-menu {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 50;
+    background: var(--panel); border: 2.5px solid var(--accent); border-radius: 16px;
+    box-shadow: 0 10px 28px var(--shadow); padding: 6px; min-width: 132px;
+    opacity: 0; transform: translateY(-6px) scale(.96); transform-origin: top right;
+    pointer-events: none; transition: opacity .2s, transform .2s cubic-bezier(.34,1.6,.5,1);
+  }
+  .dropdown.open .dropdown-menu { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+  .dropdown-menu button {
+    display: block; width: 100%; text-align: left; border: none; background: transparent;
+    color: var(--ink); font-family: inherit; font-size: 13px; font-weight: 600;
+    padding: 8px 12px; border-radius: 10px; cursor: pointer; transition: background .15s, color .15s;
+  }
+  .dropdown-menu button:hover { background: var(--accent); color: #fff; }
+  .gauges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .gauge { display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; }
+  .gauge svg { display: block; }
+  .gauge span { font-size: 11px; color: var(--ink-soft); }
+  .stats { display: flex; gap: 16px; margin-top: 8px; font-size: 12px; color: var(--ink-soft); flex-wrap: wrap; }
+  .stats b { color: var(--accent-deep); }
+
+  /* ===== 图区 ===== */
+  #graph { position: fixed; inset: 0; top: 0; }
+  #graph svg { width: 100vw; height: 100vh; cursor: grab; }
+  #graph svg:active { cursor: grabbing; }
+  .link { stroke: var(--line); stroke-opacity: .7; stroke-width: 2px; }
+  .link.sub { stroke-opacity: .45; stroke-width: 1.3px; }
+  .node { cursor: pointer; }
+  .toggle-badge { cursor: pointer; }
+  .node circle { filter: drop-shadow(0 4px 8px var(--shadow)); transition: transform .25s cubic-bezier(.34,1.8,.5,1); transform-box: fill-box; transform-origin: center; }
+  .node:hover circle { transform: scale(1.18); }
+  .node text { font-size: 12px; fill: var(--ink); pointer-events: none; text-anchor: middle; font-weight: 600; paint-order: stroke; stroke: var(--panel); stroke-width: 3px; stroke-linejoin: round; }
+  .node text.emoji { stroke: none; }
+  .node.dept text { font-size: 13px; font-weight: 700; }
+  .node.center text { font-size: 15px; font-weight: 700; fill: var(--accent-deep); }
+  .node.sub text { font-size: 10px; fill: var(--ink-soft); }
+  .breathe { animation: breathe 3s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes breathe { 0%,100%{ transform: scale(1) } 50%{ transform: scale(1.06) } }
+  .pop-in { animation: popIn .5s cubic-bezier(.34,1.8,.5,1), glow 1.2s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
+  @keyframes popIn { 0%{ transform: scale(0) } 70%{ transform: scale(1.5) } 100%{ transform: scale(1) } }
+  @keyframes glow { from{ filter: drop-shadow(0 0 2px var(--gold)) } to{ filter: drop-shadow(0 0 9px var(--gold)) } }
+
+  /* ===== 输入区 ===== */
+  #inputbar {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+    z-index: 25; width: min(680px, 92vw);
+    background: var(--panel); border: 3px solid var(--accent); border-radius: 26px;
+    box-shadow: 0 10px 30px var(--shadow); padding: 10px 12px 10px 18px;
+    display: flex; gap: 10px; align-items: flex-end;
+  }
+  #inputbar textarea {
+    flex: 1; resize: none; border: none; outline: none; background: transparent;
+    font-family: inherit; font-size: 15px; color: var(--ink); line-height: 1.5;
+    max-height: 120px; min-height: 26px;
+  }
+  #inputbar textarea::placeholder { color: var(--ink-soft); }
+
+  /* ===== 报告抽屉 ===== */
+  #drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(400px, 92vw); z-index: 40;
+    background: var(--panel); border-left: 3px solid var(--line);
+    border-top-left-radius: 28px; border-bottom-left-radius: 28px;
+    box-shadow: -10px 0 40px var(--shadow);
+    transform: translateX(105%); transition: transform .4s cubic-bezier(.34,1.4,.5,1);
+    display: flex; flex-direction: column; padding: 22px;
+  }
+  #drawer.open { transform: translateX(0); }
+  .drawer-title { font-family: "ZCOOL KuaiLe", sans-serif; font-size: 23px; font-weight: 400; color: var(--accent-deep); margin: 4px 0 2px; }
+  .drawer-sub { font-size: 12px; color: var(--ink-soft); margin-bottom: 14px; }
+  .drawer-close { position: absolute; top: 14px; right: 16px; cursor: pointer; font-size: 18px; line-height: 28px; width: 30px; height: 30px; text-align: center; color: var(--accent-deep); background: var(--bg); border: 2.5px solid var(--accent); border-radius: 50%; transition: transform .2s cubic-bezier(.34,1.8,.5,1); }
+  .drawer-close:hover { transform: rotate(90deg) scale(1.1); }
+  .drawer-body { overflow-y: auto; flex: 1; }
+  .report-card { background: var(--bg); border: 2.5px solid var(--line); border-radius: 20px; padding: 13px 15px; margin-bottom: 12px; }
+  .report-card .tag { font-size: 11px; font-weight: 700; letter-spacing: 1px; padding: 3px 10px; border-radius: 12px; color: #fff; }
+  .tag.s { background: var(--accent); } .tag.r { background: var(--risk); }
+  .tag.k { background: var(--good); } .tag.g { background: var(--warn); } .tag.x { background: var(--gold); }
+  .report-card p { margin: 8px 0 0; font-size: 14px; line-height: 1.6; color: var(--ink); }
+  .recent { margin-top: 6px; padding-left: 0; max-height: 220px; overflow-y: auto; }
+  .recent li { font-size: 13px; color: var(--ink-soft); line-height: 1.6; list-style: none; padding: 3px 0 3px 18px; position: relative; display: flex; align-items: flex-start; gap: 6px; }
+  .recent li:before { content: "🩷"; position: absolute; left: 0; top: 6px; font-size: 9px; }
+  .recent .rec-text { flex: 1; min-width: 0; }
+  .recent .rec-del { flex-shrink: 0; background: none; border: none; cursor: pointer; font-size: 13px; opacity: .55; transition: opacity .2s, transform .2s; }
+  .recent .rec-del:hover { opacity: 1; transform: scale(1.2); }
+  .feedback-box { margin-top: 8px; }
+  .feedback-box textarea { width: 100%; border: 2.5px solid var(--line); border-radius: 14px; background: var(--bg); color: var(--ink); font-family: inherit; font-size: 13px; padding: 8px; resize: vertical; outline: none; }
+  .feedback-box textarea:focus { border-color: var(--accent); }
+  .fb-list { padding-left: 0; }
+  .fb-list li { font-size: 12px; color: var(--ink-soft); margin-top: 6px; list-style: none; border-left: 3px solid var(--accent); padding-left: 8px; }
+
+  /* ===== toast & 选择弹窗 ===== */
+  #toast {
+    position: fixed; left: 50%; bottom: 92px; transform: translateX(-50%) translateY(20px);
+    background: var(--accent-deep); color: #fff; padding: 11px 24px; border-radius: 22px;
+    font-size: 14px; font-weight: 600; z-index: 60; opacity: 0; pointer-events: none;
+    transition: all .35s cubic-bezier(.34,1.6,.5,1); box-shadow: 0 6px 18px var(--shadow);
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  /* ===== 部门悬停提示 ===== */
+  #tip {
+    position: fixed; z-index: 55; max-width: 240px; pointer-events: none;
+    background: var(--panel); border: 2.5px solid var(--accent); border-radius: 18px;
+    padding: 10px 14px; box-shadow: 0 8px 24px var(--shadow);
+    opacity: 0; transform: translateY(6px) scale(.96); transform-origin: left top;
+    transition: opacity .2s, transform .2s cubic-bezier(.34,1.6,.5,1);
+  }
+  #tip.show { opacity: 1; transform: translateY(0) scale(1); }
+  #tip .tip-name { font-family: "ZCOOL KuaiLe", sans-serif; font-size: 16px; color: var(--accent-deep); margin-bottom: 2px; }
+  #tip .tip-role { font-size: 11px; color: var(--accent); font-weight: 700; margin-bottom: 5px; }
+  #tip .tip-desc { font-size: 12.5px; color: var(--ink-soft); line-height: 1.55; }
+  #tip .tip-hint { font-size: 11px; color: var(--accent); margin-top: 6px; }
+  #modal {
+    position: fixed; inset: 0; z-index: 70; background: rgba(180,90,140,.28); backdrop-filter: blur(2px);
+    display: none; align-items: center; justify-content: center;
+  }
+  #modal.show { display: flex; }
+  .modal-card { background: var(--panel); border: 3px solid var(--accent); border-radius: 28px; padding: 24px; width: min(420px, 90vw); box-shadow: 0 20px 50px var(--shadow); }
+  .modal-card h3 { font-family: "ZCOOL KuaiLe", sans-serif; font-weight: 400; margin: 0 0 6px; color: var(--accent-deep); font-size: 19px; }
+  .modal-card p { margin: 0 0 14px; font-size: 13px; color: var(--ink-soft); }
+  .dept-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .dept-grid .btn { width: 100%; text-align: center; }
+  /* 目标设置弹窗 */
+  #goal-modal {
+    position: fixed; inset: 0; z-index: 85; background: rgba(180,140,165,.30); backdrop-filter: blur(3px);
+    display: none; align-items: center; justify-content: center; padding: 20px;
+  }
+  #goal-modal.show { display: flex; }
+  #goal-modal .modal-card { width: min(440px, 92vw); }
+  #goalModalInput {
+    width: 100%; border: 2.5px solid var(--line); border-radius: 14px; background: var(--bg);
+    color: var(--ink); font-family: inherit; font-size: 14px; padding: 10px; resize: vertical; outline: none; line-height: 1.5;
+  }
+  #goalModalInput:focus { border-color: var(--accent); }
+  .goal-modal-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+  /* 右键菜单 */
+  #ctx-menu {
+    position: fixed; z-index: 95; min-width: 150px; display: none;
+    background: var(--panel); border: 2.5px solid var(--accent); border-radius: 14px;
+    box-shadow: 0 10px 28px var(--shadow); padding: 6px; animation: popIn .2s cubic-bezier(.34,1.6,.5,1);
+  }
+  #ctx-menu.show { display: block; }
+  #ctx-menu .ctx-title { font-size: 11px; color: var(--ink-soft); padding: 4px 10px 6px; border-bottom: 1.5px dashed var(--line); margin-bottom: 4px; font-weight: 700; }
+  #ctx-menu button {
+    display: block; width: 100%; text-align: left; border: none; background: transparent;
+    color: var(--ink); font-family: inherit; font-size: 13px; font-weight: 600;
+    padding: 8px 12px; border-radius: 9px; cursor: pointer; transition: background .15s, color .15s;
+  }
+  #ctx-menu button:hover { background: var(--accent); color: #fff; }
+  #ctx-menu button.danger:hover { background: var(--risk); }
+  /* 命名弹窗 */
+  #name-modal {
+    position: fixed; inset: 0; z-index: 96; background: rgba(180,140,165,.30); backdrop-filter: blur(3px);
+    display: none; align-items: center; justify-content: center; padding: 20px;
+  }
+  #name-modal.show { display: flex; }
+  #name-modal .modal-card { width: min(380px, 92vw); }
+  #nameModalInput {
+    width: 100%; border: 2.5px solid var(--line); border-radius: 14px; background: var(--bg);
+    color: var(--ink); font-family: inherit; font-size: 15px; padding: 10px 12px; outline: none; margin-top: 4px;
+  }
+  #nameModalInput:focus { border-color: var(--accent); }
+  .node.folder { cursor: grab; }
+  .node.folder.dragging { cursor: grabbing; }
+  .node.folder.dragging circle { filter: drop-shadow(0 6px 14px var(--shadow)); opacity: .9; }
+  .node.sub { cursor: grab; }
+  .node.sub.dragging { cursor: grabbing; }
+  .node.sub.dragging circle { filter: drop-shadow(0 6px 12px var(--shadow)); opacity: .9; }
+  circle.drop-target { stroke: var(--gold) !important; stroke-width: 5px !important; filter: drop-shadow(0 0 10px var(--gold)); }
+
+  /* ===== 议案审批面板 ===== */
+  #review-overlay {
+    position: fixed; inset: 0; z-index: 80; background: rgba(180,140,165,.30); backdrop-filter: blur(3px);
+    display: none; align-items: center; justify-content: center; padding: 20px;
+  }
+  #review-overlay.show { display: flex; }
+  .review-card {
+    background: var(--panel); border: 3px solid var(--accent); border-radius: 28px;
+    width: min(560px, 96vw); max-height: 86vh; display: flex; flex-direction: column;
+    padding: 22px 22px 18px; box-shadow: 0 24px 60px var(--shadow);
+  }
+  .review-head { display: flex; align-items: center; justify-content: space-between; }
+  .review-title { font-family: "ZCOOL KuaiLe", sans-serif; font-weight: 400; font-size: 21px; color: var(--accent-deep); }
+  .review-head .drawer-close { position: static; }
+  .review-sub { font-size: 12.5px; color: var(--ink-soft); margin: 4px 0 12px; line-height: 1.5; }
+  .review-list { overflow-y: auto; flex: 1; margin: 0 -4px; padding: 0 4px; }
+  .prop {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: var(--bg); border: 2.5px solid var(--line); border-radius: 18px;
+    padding: 11px 13px; margin-bottom: 10px; transition: border-color .2s, opacity .2s;
+  }
+  .prop.off { opacity: .45; }
+  .prop.off .prop-text { text-decoration: line-through; }
+  .prop input.chk { width: 20px; height: 20px; accent-color: var(--accent-deep); margin-top: 2px; cursor: pointer; flex-shrink: 0; }
+  .prop-body { flex: 1; min-width: 0; }
+  .prop-text {
+    width: 100%; border: none; background: transparent; color: var(--ink);
+    font-family: inherit; font-size: 14px; line-height: 1.5; resize: none; outline: none; overflow: hidden;
+  }
+  .prop-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+  .prop-meta label { font-size: 11px; color: var(--ink-soft); }
+  .prop-dept {
+    font-family: inherit; font-size: 12px; color: var(--accent-deep); font-weight: 600;
+    background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 3px 8px; cursor: pointer; outline: none;
+  }
+  .prop-del { font-size: 15px; cursor: pointer; color: var(--ink-soft); background: none; border: none; margin-left: auto; }
+  .prop-del:hover { color: var(--risk); }
+  .review-foot { display: flex; align-items: center; gap: 10px; padding-top: 12px; border-top: 2px dashed var(--line); margin-top: 4px; }
+  .review-count { font-size: 12.5px; color: var(--ink-soft); margin-right: auto; }
+  .upload-drag { border-color: var(--accent-deep) !important; background: var(--bg-soft) !important; }
+
+  /* ===== 延伸进度面板 ===== */
+  #extend-overlay {
+    position: fixed; inset: 0; z-index: 82; background: rgba(180,140,165,.30); backdrop-filter: blur(3px);
+    display: none; align-items: center; justify-content: center; padding: 20px;
+  }
+  #extend-overlay.show { display: flex; }
+  .extend-review {
+    background: var(--bg-soft); border: 2.5px solid var(--accent); border-radius: 18px;
+    padding: 12px 15px; font-size: 13.5px; line-height: 1.6; color: var(--ink); margin-bottom: 14px;
+  }
+  .extend-actions-label { font-size: 12.5px; color: var(--ink-soft); margin-bottom: 8px; font-weight: 600; }
+
+  /* ===== 施政建议总览页 ===== */
+  #advice-page {
+    position: fixed; inset: 0; z-index: 90; background: var(--bg);
+    background-image: radial-gradient(circle at 12% 15%, rgba(242,175,202,.18), transparent 42%),
+                      radial-gradient(circle at 88% 80%, rgba(170,205,235,.15), transparent 42%);
+    overflow-y: auto; display: none; opacity: 0; transition: opacity .3s;
+  }
+  #advice-page.show { display: block; opacity: 1; }
+  .advice-inner { max-width: 1100px; margin: 0 auto; padding: 28px 26px 60px; }
+  .advice-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 6px; position: relative; }
+  .advice-title { font-family: "ZCOOL KuaiLe", sans-serif; font-size: 30px; color: var(--accent-deep); }
+  .advice-summary { font-size: 13.5px; color: var(--ink-soft); margin-top: 6px; line-height: 1.6; max-width: 760px; }
+  .advice-header .drawer-close { position: static; flex-shrink: 0; }
+  .advice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 16px; margin-top: 20px; }
+  .adv-card {
+    background: var(--panel); border: 2.5px solid var(--line); border-radius: 24px;
+    padding: 16px 18px 14px; box-shadow: 0 8px 22px var(--shadow);
+    display: flex; flex-direction: column; transition: transform .2s, border-color .2s;
+  }
+  .adv-card:hover { transform: translateY(-3px); }
+  .adv-top { display: flex; align-items: center; gap: 10px; }
+  .adv-emoji { font-size: 30px; line-height: 1; }
+  .adv-name { font-weight: 700; font-size: 16px; color: var(--ink); }
+  .adv-role { font-size: 11px; color: var(--ink-soft); }
+  .adv-ring { margin-left: auto; }
+  .adv-state { display: inline-block; font-size: 11px; font-weight: 700; color: #fff; border-radius: 12px; padding: 3px 10px; margin: 10px 0 8px; }
+  .adv-state.good { background: var(--good); } .adv-state.warn { background: var(--warn); } .adv-state.risk { background: var(--risk); }
+  .adv-review { font-size: 13px; line-height: 1.6; color: var(--ink); background: var(--bg); border-radius: 14px; padding: 10px 12px; }
+  .adv-actions { margin: 10px 0 0; padding: 0; list-style: none; }
+  .adv-actions li { font-size: 12.5px; color: var(--ink-soft); line-height: 1.55; display: flex; gap: 7px; align-items: flex-start; padding: 4px 0; }
+  .adv-actions li:before { content: "▷"; color: var(--accent); flex-shrink: 0; }
+  .adv-adopt { margin-top: 12px; align-self: flex-start; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div id="dashboard">
+  <div class="dash-row">
+    <div class="brand">个人版国家治理系统<br /><small>用治理逻辑经营人生</small></div>
+    <div class="mainline">
+      <b>年度主线：</b>
+      <input id="mainlineInput" placeholder="点此写下今年的主线…" />
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" id="adviceBtn">🏛 施政建议</button>
+    <div class="dropdown" id="reviewDrop">
+      <button class="btn">复盘 ▾</button>
+      <div class="dropdown-menu">
+        <button data-period="week">📅 周复盘</button>
+        <button data-period="month">🗓️ 月复盘</button>
+        <button data-period="quarter">📆 季复盘</button>
+        <button data-period="year">🎍 年复盘</button>
+      </div>
+    </div>
+    <div class="dropdown" id="goalDrop">
+      <button class="btn">目标 ▾</button>
+      <div class="dropdown-menu">
+        <button data-period="week">🎯 周目标</button>
+        <button data-period="month">🎯 月目标</button>
+        <button data-period="quarter">🎯 季目标</button>
+        <button data-period="year">🎯 年目标</button>
+      </div>
+    </div>
+    <button class="btn ghost" id="viewBtn">全部展开</button>
+    <button class="btn ghost" id="themeBtn">🌙</button>
+  </div>
+  <div class="gauges" id="gauges"></div>
+  <div class="stats" id="stats"></div>
+</div>
+
+<div id="graph"></div>
+
+<div id="inputbar">
+  <button class="btn ghost" id="uploadBtn" title="上传读书/播客笔记，系统帮你挑出可行动的事项">📎 上传笔记</button>
+  <textarea id="entryInput" rows="1" placeholder="写下今天/本周的更新，回车提交（Shift+Enter 换行）…"></textarea>
+  <button class="btn" id="submitBtn">提交</button>
+  <input type="file" id="fileInput" accept=".txt,.md,.markdown,text/plain" multiple style="display:none" />
+</div>
+
+<!-- 议案审批面板 -->
+<div id="review-overlay">
+  <div class="review-card">
+    <div class="review-head">
+      <div class="review-title" id="reviewTitle">📋 待审议案</div>
+      <span class="drawer-close" id="reviewClose">×</span>
+    </div>
+    <div class="review-sub" id="reviewSub"></div>
+    <div class="review-list" id="reviewList"></div>
+    <div class="review-foot">
+      <span class="review-count" id="reviewCount"></span>
+      <button class="btn ghost" id="reviewCancel">全部取消</button>
+      <button class="btn" id="reviewConfirm">✅ 确认采纳</button>
+    </div>
+  </div>
+</div>
+
+<!-- 延伸进度面板（提交后弹出） -->
+<div id="extend-overlay">
+  <div class="review-card">
+    <div class="review-head">
+      <div class="review-title" id="extendTitle">✨ 系统延伸建议</div>
+      <span class="drawer-close" id="extendClose">×</span>
+    </div>
+    <div class="review-sub" id="extendSub"></div>
+    <div class="extend-review" id="extendReview"></div>
+    <div class="extend-actions-label">建议的下一步（勾选你想纳入系统的）：</div>
+    <div class="review-list" id="extendList"></div>
+    <div class="review-foot">
+      <span class="review-count" id="extendCount"></span>
+      <button class="btn ghost" id="extendSkip">先不用</button>
+      <button class="btn" id="extendConfirm">✅ 采纳所选</button>
+    </div>
+  </div>
+</div>
+
+<!-- 施政建议总览（独立页面） -->
+<div id="advice-page">
+  <div class="advice-inner">
+    <div class="advice-header">
+      <div>
+        <div class="advice-title">🏛 施政建议总览</div>
+        <div class="advice-summary" id="adviceSummary"></div>
+      </div>
+      <span class="drawer-close" id="adviceClose">×</span>
+    </div>
+    <div class="advice-grid" id="adviceGrid"></div>
+  </div>
+</div>
+
+<div id="drawer">
+  <span class="drawer-close" id="drawerClose">×</span>
+  <div class="drawer-title" id="drawerTitle"></div>
+  <div class="drawer-sub" id="drawerSub"></div>
+  <div class="drawer-body" id="drawerBody"></div>
+</div>
+
+<div id="toast"></div>
+<div id="tip"></div>
+
+<!-- 右键菜单 -->
+<div id="ctx-menu"></div>
+
+<!-- 文件夹命名弹窗 -->
+<div id="name-modal">
+  <div class="modal-card">
+    <h3 id="nameModalTitle">📁 新建文件夹</h3>
+    <input id="nameModalInput" type="text" placeholder="输入文件夹名称…" />
+    <div class="goal-modal-foot">
+      <button class="btn ghost" id="nameModalCancel">取消</button>
+      <button class="btn" id="nameModalSave">确定</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal">
+  <div class="modal-card">
+    <h3>这条更新归属哪个部门？</h3>
+    <p id="modalText">系统无法自动判断，请手动选择：</p>
+    <div class="dept-grid" id="modalGrid"></div>
+  </div>
+</div>
+
+<!-- 目标设置弹窗 -->
+<div id="goal-modal">
+  <div class="modal-card">
+    <h3 id="goalModalTitle">🎯 设定目标</h3>
+    <p id="goalModalHint">写下你这个周期想达成的目标，复盘时会用它来对照检查。</p>
+    <textarea id="goalModalInput" rows="3" placeholder="例如：本月坚持每周运动3次，读完1本书…"></textarea>
+    <div class="goal-modal-foot">
+      <button class="btn ghost" id="goalModalCancel">取消</button>
+      <button class="btn" id="goalModalSave">保存目标</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ 部门设定 ============ */
+const DEPTS = [
+  { id: "center", name: "中枢｜办公厅", role: "定目标·做协调·做复盘", color: "var(--gold)", r: 46, emoji: "👑", desc: "你的总指挥部：明确年度主线、统筹各部门、每周每月校正方向。" },
+  { id: "fagai",  name: "发改委", role: "战略规划与发展", color: "#c9b8e8", r: 34, emoji: "🚀", desc: "管人生规划：长期路线、重大项目、未来几年想去哪儿。" },
+  { id: "caizheng", name: "财政部", role: "资源分配", color: "#f3d3a8", r: 34, emoji: "💰", desc: "管钱袋子：收支预算、储蓄配置、花钱有没有纪律。" },
+  { id: "jiaoyu", name: "教育部", role: "学习成长", color: "#abdcd4", r: 34, emoji: "📚", desc: "管学习成长：知识体系、专业能力、技能精进。" },
+  { id: "weijian", name: "卫健委", role: "身心健康", color: "#c8e3b0", r: 34, emoji: "🌱", desc: "管身心健康：运动睡眠、饮食作息、看病体检。" },
+  { id: "waijiao", name: "外交部", role: "关系网络", color: "#f3c4d8", r: 34, emoji: "💌", desc: "管关系网络：朋友家人、合作人脉、沟通表达。" },
+  { id: "wenlv",  name: "文旅局", role: "精神生活", color: "#b6d4ef", r: 34, emoji: "🎀", desc: "管精神生活：阅读审美、旅行体验、心灵滋养。" },
+];
+const DEPT_MAP = Object.fromEntries(DEPTS.map(d => [d.id, d]));
+
+/* 关键词归类规则 */
+const RULES = [
+  { id: "weijian",  kws: ["健身","睡眠","吃","医生","锻炼","瑜伽","跑步","健康","运动","饮食","体检","睡"] },
+  { id: "caizheng", kws: ["花","买","钱","省","投资","存款","预算","收入","支出","理财","工资","消费"] },
+  { id: "jiaoyu",   kws: ["学","课","书","技能","培训","读","考试","课程","研究","练习"] },
+  { id: "waijiao",  kws: ["朋友","见面","沟通","合作","聊","人脉","社交","团队","客户","家人"] },
+  { id: "wenlv",    kws: ["旅行","电影","展览","感悟","精神","音乐","艺术","旅游","风景","展","看展"] },
+  { id: "fagai",    kws: ["规划","目标","长期","方向","战略","计划","路线","愿景","项目"] },
+  { id: "center",   kws: ["复盘","总结","调整","反思","校正","协调","统筹"] },
+];
+
+/* ============ 延伸进度生成（规则版） ============
+   按部门给出「下一步行动建议」+ 一句点评，纯本地模板，不联网 */
+const EXTEND = {
+  fagai: {
+    review: "这是关乎方向的事，发改委建议把它放进长期规划里，别让它只停在想法阶段。",
+    actions: ["把这个目标拆成 1～3 年的阶段里程碑", "写下「做成它需要哪 3 个关键条件」", "本月找一次时间，评估它和年度主线是否一致"],
+  },
+  caizheng: {
+    review: "涉及资源分配，财政部提醒你：让每一笔投入都对得上预算和目标。",
+    actions: ["记录这笔收支的具体金额，纳入本月预算", "评估它是消费还是投资，能不能产生回报", "设一个本类别的月度上限，避免失控"],
+  },
+  jiaoyu: {
+    review: "学习要有复利，教育部建议把这次输入沉淀成可复用的能力。",
+    actions: ["定一个本周可完成的小学习目标", "把学到的整理成一页笔记或一句话总结", "找一个真实场景把它用出来，避免学了就忘"],
+  },
+  weijian: {
+    review: "身体是一切的本钱，卫健委建议把它变成可持续的日常习惯。",
+    actions: ["把它固定成每周 3 次的小习惯", "记录今天的睡眠/运动/饮食状态", "如果有不适，安排一次体检或就医"],
+  },
+  waijiao: {
+    review: "关系需要经营，外交部建议主动维护这条连接。",
+    actions: ["约定下次联系/见面的时间", "想一件可以为对方提供价值的小事", "把这段关系记入你的人脉清单"],
+  },
+  wenlv: {
+    review: "精神生活滋养内心，文旅局建议给它留出稳定的空间。",
+    actions: ["写下这次体验带给你的一个感受或启发", "计划下一次类似的精神滋养活动", "把它分享给一个能共鸣的人"],
+  },
+  center: {
+    review: "中枢负责统筹，建议你把它和整体节奏对齐。",
+    actions: ["判断它属于哪个部门、是否需要立项", "排进本周的优先级清单", "下次复盘时回看它的进展"],
+  },
+};
+// 根据一条输入，生成延伸：部门 + 点评 + 几条下一步
+function genExtend(text, dept) {
+  const e = EXTEND[dept] || EXTEND.center;
+  return { dept, review: e.review, actions: e.actions.slice() };
+}
+
+/* ============ 数据层 (localStorage) ============ */
+const LS_KEY = "personal_governance_v1";
+let store = loadStore();
+function loadStore() {
+  try {
+    const s = JSON.parse(localStorage.getItem(LS_KEY));
+    if (s && s.entries) {
+      if (!s.goals) s.goals = {};
+      if (!s.folders) s.folders = [];           // 文件夹结构
+      s.entries.forEach(e => { if (e.folder === undefined) e.folder = null; }); // 旧记录默认挂部门下
+      return s;
+    }
+  } catch (e) {}
+  return { entries: [], feedback: {}, mainline: "", theme: "light", goals: {}, folders: [] };
+}
+function save() { localStorage.setItem(LS_KEY, JSON.stringify(store)); }
+function uid() { return Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36); }
+
+/* ============ 归类 ============ */
+function classify(text) {
+  const scores = {};
+  for (const rule of RULES) {
+    let c = 0;
+    for (const kw of rule.kws) if (text.includes(kw)) c++;
+    if (c > 0) scores[rule.id] = c;
+  }
+  const keys = Object.keys(scores);
+  if (keys.length === 0) return null;
+  keys.sort((a, b) => scores[b] - scores[a]);
+  return keys[0];
+}
+
+/* ============ 文件夹数据操作 ============ */
+function foldersOf(dept, parent) {        // 某部门下、某父文件夹下的直接子文件夹
+  return store.folders.filter(f => f.dept === dept && (f.parent || null) === (parent || null));
+}
+function getFolder(fid) { return store.folders.find(f => f.id === fid); }
+function entriesIn(dept, folder) {        // 某部门下、某文件夹下（folder=null 即部门根）的直接记录
+  return store.entries.filter(e => e.dept === dept && (e.folder || null) === (folder || null));
+}
+function addFolder(dept, parent, name) {
+  const f = { id: "f_" + uid(), name: name || "新文件夹", dept, parent: parent || null };
+  store.folders.push(f); save(); return f;
+}
+function renameFolder(fid, name) { const f = getFolder(fid); if (f) { f.name = name; save(); } }
+// 删除文件夹：withContent=true 连同子文件夹和记录一起删；false 则把内容上移到父级
+function deleteFolder(fid, withContent) {
+  const f = getFolder(fid); if (!f) return;
+  const childFolders = store.folders.filter(x => x.parent === fid);
+  const childEntries = store.entries.filter(e => e.folder === fid);
+  if (withContent) {
+    childFolders.forEach(cf => deleteFolder(cf.id, true));      // 递归删子文件夹
+    store.entries = store.entries.filter(e => e.folder !== fid); // 删本夹下记录
+  } else {
+    childFolders.forEach(cf => cf.parent = f.parent);  // 子文件夹上移
+    childEntries.forEach(e => e.folder = f.parent);    // 记录上移
+  }
+  store.folders = store.folders.filter(x => x.id !== fid);
+  save();
+}
+// 统计文件夹下（含所有后代）总内容数
+function folderContentCount(fid) {
+  let n = store.entries.filter(e => e.folder === fid).length;
+  store.folders.filter(x => x.parent === fid).forEach(cf => n += folderContentCount(cf.id));
+  return n;
+}
+
+/* ============ 图谱（确定性放射布局，零抖动） ============ */
+let justAdded = new Set();          // 刚采纳的记录 id，用于高亮
+let openDepts = new Set();          // 当前展开的部门 id（默认全部折叠）
+let openFolders = new Set();        // 当前展开的文件夹 id
+let layoutNodes = [];               // 最近一次布局的节点（拖拽命中检测用）
+let view = { x: 0, y: 0, k: 1 };    // 画布平移/缩放
+const svg = d3.select("#graph").append("svg");
+const rootG = svg.append("g");
+let linkSel, nodeSel;
+
+const zoom = d3.zoom().scaleExtent([0.4, 2.5])
+  .filter(ev => !ev.button && ev.type !== "dblclick")
+  .on("zoom", (ev) => { view = ev.transform; rootG.attr("transform", view); });
+svg.call(zoom);
+
+// 计算每个节点的固定坐标
+function computeLayout() {
+  const W = window.innerWidth, H = window.innerHeight;
+  const cx = W / 2, cy = H / 2 + 10;
+  const nodes = [], links = [];
+  const deptN = DEPTS.length - 1;           // 6 个部门
+  const ringR = Math.min(W, H) * 0.30;      // 部门环半径
+
+  const center = DEPTS[0];
+  nodes.push({ ...center, type: "center", x: cx, y: cy, fx: cx, fy: cy });
+
+  DEPTS.slice(1).forEach((d, i) => {
+    const ang = (-90 + i * 360 / deptN) * Math.PI / 180;
+    const dx = cx + ringR * Math.cos(ang);
+    const dy = cy + ringR * Math.sin(ang);
+    nodes.push({ ...d, type: "dept", x: dx, y: dy, angle: ang });
+    links.push({ a: [cx, cy], b: [dx, dy] });
+
+    if (openDepts.has(d.id)) {
+      // 递归铺开：先文件夹，后散落记录。沿部门角度方向、按深度向外延伸
+      placeChildren(d.id, null, dx, dy, ang, ringR, 1);
+    }
+  });
+
+  // 把 (dept, folder) 容器的子项铺在 (px,py) 外侧的扇形里
+  function placeChildren(dept, folder, px, py, baseAng, baseR, depth) {
+    const subFolders = foldersOf(dept, folder);
+    const items = entriesIn(dept, folder).sort((a, b) => b.ts - a.ts);
+    const children = [
+      ...subFolders.map(f => ({ kind: "folder", f })),
+      ...items.map(e => ({ kind: "entry", e })),
+    ];
+    if (!children.length) return;
+    const spread = Math.max(0.5, 1.0 - depth * 0.12);   // 越深扇形越收
+    const gap = 60;
+    const rr = baseR + gap;
+    const n = children.length;
+    const a0 = baseAng - spread / 2;
+    children.forEach((c, j) => {
+      const a = n === 1 ? baseAng : a0 + j * spread / (n - 1);
+      const nx = cx + rr * Math.cos(a);
+      const ny = cy + rr * Math.sin(a);
+      if (c.kind === "folder") {
+        const fid = c.f.id;
+        const count = folderContentCount(fid);
+        nodes.push({ id: fid, fid, type: "folder", dept, folder,
+          name: c.f.name, count, r: 13, x: nx, y: ny });
+        links.push({ a: [px, py], b: [nx, ny], folder: true });
+        if (openFolders.has(fid)) placeChildren(dept, fid, nx, ny, a, rr, depth + 1);
+      } else {
+        const e = c.e;
+        nodes.push({ id: "e_" + e.id, eid: e.id, type: "sub", dept, folder,
+          name: e.text.length > 14 ? e.text.slice(0, 14) + "…" : e.text,
+          full: e.text, r: 8, x: nx, y: ny });
+        links.push({ a: [px, py], b: [nx, ny], sub: true });
+      }
+    });
+  }
+
+  return { nodes, links };
+}
+
+function render() {
+  const { nodes, links } = computeLayout();
+  layoutNodes = nodes;          // 供拖拽命中检测使用
+  rootG.selectAll("*").remove();
+  const linkLayer = rootG.append("g");
+  const nodeLayer = rootG.append("g");
+
+  linkSel = linkLayer.selectAll("line").data(links).join("line")
+    .attr("class", d => "link" + (d.sub ? " sub" : ""))
+    .attr("x1", d => d.a[0]).attr("y1", d => d.a[1])
+    .attr("x2", d => d.b[0]).attr("y2", d => d.b[1]);
+
+  nodeSel = nodeLayer.selectAll("g").data(nodes, d => d.id).join("g")
+    .attr("class", d => "node " + d.type)
+    .attr("transform", d => `translate(${d.x},${d.y})`);
+
+  nodeSel.append("circle")
+    .attr("r", d => d.r)
+    .attr("fill", d => {
+      if (d.type === "folder") return DEPT_MAP[d.dept].color;          // 文件夹继承部门色
+      if (d.type === "sub") return justAdded.has(d.eid) ? "var(--accent-deep)" : "var(--accent)";
+      return d.color || "var(--accent)";
+    })
+    .attr("stroke", d => justAdded.has(d.eid) ? "var(--gold)" : "#fff")
+    .attr("stroke-width", d => d.type === "sub" ? (justAdded.has(d.eid) ? 4 : 2.5) : (d.type === "folder" ? 3 : 4))
+    .attr("class", d => (d.type === "dept" || d.type === "center") ? "breathe" : (justAdded.has(d.eid) ? "pop-in" : ""));
+
+  // 展开标记：部门节点右上角的 +/− 小圆
+  nodeSel.filter(d => d.type === "dept").append("g")
+    .attr("class", "toggle-badge")
+    .attr("transform", d => `translate(${d.r * 0.72},${-d.r * 0.72})`)
+    .on("click", (ev, d) => { ev.stopPropagation(); toggleDept(d.id); })
+    .each(function(d) {
+      const g = d3.select(this);
+      const n = store.entries.filter(e => e.dept === d.id).length + foldersOf(d.id, null).length;
+      if (n === 0) return;
+      g.append("circle").attr("r", 9).attr("fill", "var(--panel)").attr("stroke", "var(--accent)").attr("stroke-width", 2);
+      g.append("text").attr("text-anchor", "middle").attr("dy", 3.5)
+        .style("font-size", "11px").style("font-weight", "700").style("fill", "var(--accent-deep)")
+        .text(openDepts.has(d.id) ? "−" : n);
+    });
+
+  // 文件夹 📁 图标 + 数量角标
+  const folderSel = nodeSel.filter(d => d.type === "folder");
+  folderSel.append("text").attr("class", "emoji").attr("dy", d => d.r * 0.34)
+    .style("font-size", d => (d.r * 0.95) + "px").style("pointer-events", "none").text("📁");
+  folderSel.filter(d => d.count > 0).append("g")
+    .attr("class", "toggle-badge")
+    .attr("transform", d => `translate(${d.r * 0.8},${-d.r * 0.8})`)
+    .on("click", (ev, d) => { ev.stopPropagation(); toggleFolder(d.fid); })
+    .each(function(d) {
+      const g = d3.select(this);
+      g.append("circle").attr("r", 8).attr("fill", "var(--panel)").attr("stroke", "var(--accent)").attr("stroke-width", 2);
+      g.append("text").attr("text-anchor", "middle").attr("dy", 3)
+        .style("font-size", "10px").style("font-weight", "700").style("fill", "var(--accent-deep)")
+        .text(openFolders.has(d.fid) ? "−" : d.count);
+    });
+
+  // emoji 贴纸（部门/中枢）
+  nodeSel.filter(d => d.type === "dept" || d.type === "center").append("text")
+    .attr("class", "emoji").attr("dy", d => d.r * 0.34)
+    .style("font-size", d => (d.r * 0.9) + "px").style("pointer-events", "none")
+    .text(d => d.emoji || "");
+
+  // 文字标签
+  nodeSel.append("text")
+    .attr("dy", d => d.type === "sub" ? d.r + 12 : (d.type === "folder" ? d.r + 13 : d.r + 16))
+    .text(d => d.type === "center" ? "中枢｜办公厅" : d.name);
+
+  nodeSel.on("mouseenter", (ev, d) => {
+    if (d.type === "dept" || d.type === "center") showTip(ev, d);
+  }).on("mousemove", (ev, d) => { if (d.type === "dept" || d.type === "center") moveTip(ev); })
+    .on("mouseleave", () => hideTip())
+    .on("click", (ev, d) => {
+      if (d.type === "sub") { openReport(d.dept); return; }
+      if (d.type === "folder") { toggleFolder(d.fid); return; }     // 单击文件夹 = 展开/折叠
+      openReport(d.id);
+    })
+    .on("dblclick", (ev, d) => {
+      ev.stopPropagation();
+      if (d.type === "dept") toggleDept(d.id);
+      else if (d.type === "folder") toggleFolder(d.fid);
+    })
+    .on("contextmenu", (ev, d) => {
+      ev.preventDefault(); ev.stopPropagation();
+      if (d.type === "dept") openCtxMenu(ev, "dept", d);
+      else if (d.type === "folder") openCtxMenu(ev, "folder", d);
+    });
+
+  // 拖拽 bullet 节点 → 放进文件夹/部门
+  nodeSel.filter(d => d.type === "sub").call(
+    d3.drag()
+      .on("start", function(ev, d) {
+        d._dragged = false;
+        d3.select(this).raise().classed("dragging", true);
+      })
+      .on("drag", function(ev, d) {
+        d._dragged = true;
+        const [mx, my] = d3.pointer(ev, rootG.node());
+        d3.select(this).attr("transform", `translate(${mx},${my})`);
+        // 命中检测：找最近的文件夹或部门（排除自己）
+        const target = hitTarget(mx, my, d);
+        highlightDrop(target);
+      })
+      .on("end", function(ev, d) {
+        d3.select(this).classed("dragging", false);
+        if (!d._dragged) { openReport(d.dept); return; }   // 没拖动＝点击，打开报告
+        const [mx, my] = d3.pointer(ev, rootG.node());
+        const target = hitTarget(mx, my, d);
+        clearDropHighlight();
+        if (target) {
+          moveEntryTo(d.eid, target);
+        } else {
+          render();                              // 没落到目标，复位
+        }
+      })
+  );
+
+  // 拖拽文件夹节点 → 连同内容移到别的部门/文件夹
+  nodeSel.filter(d => d.type === "folder").call(
+    d3.drag()
+      .on("start", function(ev, d) {
+        d._dragged = false;
+        d3.select(this).raise().classed("dragging", true);
+      })
+      .on("drag", function(ev, d) {
+        d._dragged = true;
+        const [mx, my] = d3.pointer(ev, rootG.node());
+        d3.select(this).attr("transform", `translate(${mx},${my})`);
+        const target = hitTarget(mx, my, d);
+        highlightDrop(target);
+      })
+      .on("end", function(ev, d) {
+        d3.select(this).classed("dragging", false);
+        if (!d._dragged) { toggleFolder(d.fid); return; }   // 没拖动＝点击，展开/折叠
+        const [mx, my] = d3.pointer(ev, rootG.node());
+        const target = hitTarget(mx, my, d);
+        clearDropHighlight();
+        if (target) {
+          moveFolderTo(d.fid, target);
+        } else {
+          render();
+        }
+      })
+  );
+}
+
+// 找拖拽落点下的文件夹或部门节点
+function hitTarget(mx, my, dragNode) {
+  let best = null, bestDist = Infinity;
+  const isFolderDrag = dragNode && dragNode.type === "folder";
+  for (const n of layoutNodes) {
+    if (n.type !== "folder" && n.type !== "dept") continue;
+    if (dragNode && n.id === dragNode.id) continue;
+    // 拖文件夹时，不能落到自己的子孙文件夹上
+    if (isFolderDrag && n.type === "folder" && isDescendantFolder(dragNode.fid, n.fid)) continue;
+    const dist = Math.hypot(n.x - mx, n.y - my);
+    if (dist <= n.r + 14 && dist < bestDist) { best = n; bestDist = dist; }
+  }
+  return best;
+}
+function highlightDrop(target) {
+  clearDropHighlight();
+  if (!target) return;
+  nodeSel.filter(d => d.id === target.id).select("circle").classed("drop-target", true);
+}
+function clearDropHighlight() {
+  if (nodeSel) nodeSel.selectAll("circle.drop-target").classed("drop-target", false);
+}
+// 把记录移动到目标（文件夹或部门）
+function moveEntryTo(eid, target) {
+  const e = store.entries.find(x => x.id === eid);
+  if (!e) { render(); return; }
+  let label;
+  if (target.type === "folder") {
+    const f = getFolder(target.fid);
+    e.dept = f.dept;            // 文件夹决定所属部门
+    e.folder = f.id;
+    openFolders.add(f.id);     // 展开目标文件夹，能看到落入的内容
+    label = `📁 ${f.name}`;
+  } else { // dept
+    e.dept = target.id;
+    e.folder = null;           // 放到部门根目录
+    openDepts.add(target.id);
+    label = `${DEPT_MAP[target.id].emoji} ${DEPT_MAP[target.id].name}`;
+  }
+  save();
+  justAdded = new Set([eid]);  // 复用高亮，让移动后的节点闪一下
+  render();
+  renderDashboard();
+  setTimeout(() => { justAdded = new Set(); if (nodeSel) nodeSel.filter(d => d.type === "sub").select("circle").attr("stroke", "#fff").attr("stroke-width", 2.5); }, 2500);
+  toast(`已移动到 ${label}`);
+}
+
+// 判断 maybeChild 是否是 folder 的后代（或就是它自己）——防止拖进自己内部成环
+function isDescendantFolder(folderId, maybeChildId) {
+  if (folderId === maybeChildId) return true;
+  let cur = getFolder(maybeChildId);
+  while (cur && cur.parent) {
+    if (cur.parent === folderId) return true;
+    cur = getFolder(cur.parent);
+  }
+  return false;
+}
+// 把整个文件夹移动到目标（部门 or 另一个文件夹）
+function moveFolderTo(fid, target) {
+  const f = getFolder(fid);
+  if (!f) { render(); return; }
+  let label;
+  if (target.type === "folder") {
+    // 不能拖进自己或自己的子孙
+    if (isDescendantFolder(fid, target.fid)) { toast("不能把文件夹放进它自己里面哦～"); render(); return; }
+    const tf = getFolder(target.fid);
+    moveFolderSubtree(f, tf.dept, tf.id);   // 整棵子树改部门 + 挂到目标下
+    openFolders.add(tf.id);
+    label = `📁 ${tf.name}`;
+  } else { // dept
+    moveFolderSubtree(f, target.id, null);  // 挂到部门根
+    openDepts.add(target.id);
+    label = `${DEPT_MAP[target.id].emoji} ${DEPT_MAP[target.id].name}`;
+  }
+  save(); render(); renderDashboard();
+  toast(`已把「${f.name}」移动到 ${label}`);
+}
+// 把一个文件夹及其所有后代（子文件夹+记录）的所属部门统一改掉；并把这个文件夹挂到 newParent
+function moveFolderSubtree(folder, newDept, newParent) {
+  folder.parent = newParent;
+  const walk = (fid) => {
+    const fol = getFolder(fid);
+    fol.dept = newDept;
+    store.entries.filter(e => e.folder === fid).forEach(e => e.dept = newDept);
+    store.folders.filter(x => x.parent === fid).forEach(cf => walk(cf.id));
+  };
+  walk(folder.id);
+}
+
+// 展开/折叠单个文件夹
+function toggleFolder(fid) {
+  if (openFolders.has(fid)) openFolders.delete(fid); else openFolders.add(fid);
+  hideTip(); render();
+}
+
+// 展开/折叠单个部门
+function toggleDept(id) {
+  if (openDepts.has(id)) openDepts.delete(id); else openDepts.add(id);
+  hideTip();
+  render();
+}
+function expandAll() { DEPTS.slice(1).forEach(d => openDepts.add(d.id)); render(); }
+function collapseAll() { openDepts.clear(); render(); }
+function toggleView() {
+  const allOpen = DEPTS.slice(1).every(d => openDepts.has(d.id));
+  if (allOpen) collapseAll(); else expandAll();
+  document.getElementById("viewBtn").textContent =
+    DEPTS.slice(1).every(d => openDepts.has(d.id)) ? "全部折叠" : "全部展开";
+}
+
+/* ============ 右键菜单 & 文件夹管理 ============ */
+const ctxMenu = document.getElementById("ctx-menu");
+function openCtxMenu(ev, kind, d) {
+  let html = "";
+  if (kind === "dept") {
+    const dp = DEPT_MAP[d.id];
+    html = `<div class="ctx-title">${dp.emoji} ${dp.name}</div>
+      <button data-act="newFolder">📁 新建文件夹</button>`;
+  } else if (kind === "folder") {
+    const f = getFolder(d.fid);
+    html = `<div class="ctx-title">📁 ${escapeHtml(f.name)}</div>
+      <button data-act="newSub">📂 新建子文件夹</button>
+      <button data-act="rename">✏️ 重命名</button>
+      <button data-act="del" class="danger">🗑️ 删除文件夹</button>`;
+  }
+  ctxMenu.innerHTML = html;
+  ctxMenu.classList.add("show");
+  // 定位（避免超出屏幕）
+  const mw = ctxMenu.offsetWidth, mh = ctxMenu.offsetHeight;
+  let x = ev.clientX, y = ev.clientY;
+  if (x + mw > innerWidth - 8) x = innerWidth - mw - 8;
+  if (y + mh > innerHeight - 8) y = innerHeight - mh - 8;
+  ctxMenu.style.left = x + "px"; ctxMenu.style.top = y + "px";
+
+  ctxMenu.querySelectorAll("button").forEach(b => {
+    b.onclick = () => { hideCtxMenu(); handleCtxAct(b.dataset.act, kind, d); };
+  });
+}
+function hideCtxMenu() { ctxMenu.classList.remove("show"); }
+document.addEventListener("click", hideCtxMenu);
+document.addEventListener("scroll", hideCtxMenu, true);
+
+function handleCtxAct(act, kind, d) {
+  if (act === "newFolder") {
+    openNameModal("📁 新建文件夹", "", (name) => {
+      const f = addFolder(d.id, null, name);
+      openDepts.add(d.id);                 // 自动展开部门，让新文件夹可见
+      render(); toast(`已在 ${DEPT_MAP[d.id].name} 新建文件夹「${name}」`);
+    });
+  } else if (act === "newSub") {
+    const parent = getFolder(d.fid);
+    openNameModal("📂 新建子文件夹", "", (name) => {
+      addFolder(parent.dept, parent.id, name);
+      openFolders.add(parent.id);          // 展开父文件夹
+      render(); toast(`已新建子文件夹「${name}」`);
+    });
+  } else if (act === "rename") {
+    const f = getFolder(d.fid);
+    openNameModal("✏️ 重命名文件夹", f.name, (name) => {
+      renameFolder(f.id, name); render(); toast(`已重命名为「${name}」`);
+    });
+  } else if (act === "del") {
+    const f = getFolder(d.fid);
+    const cnt = folderContentCount(f.id);
+    if (cnt === 0) {
+      deleteFolder(f.id, false); render(); toast(`已删除文件夹「${f.name}」`);
+    } else {
+      // 文件夹非空：询问是否连同内容一起删
+      const withContent = confirm(
+        `文件夹「${f.name}」下有 ${cnt} 项内容。\n\n` +
+        `· 点「确定」：连同里面的子文件夹和记录一起删除（不可恢复）\n` +
+        `· 点「取消」：只删这个文件夹，把里面的内容移到上一层保留`
+      );
+      deleteFolder(f.id, withContent);
+      render();
+      toast(withContent ? `已删除文件夹及其 ${cnt} 项内容` : `已删除文件夹，内容已移到上层`);
+    }
+  }
+}
+
+/* 文件夹命名弹窗 */
+const nameModal = document.getElementById("name-modal");
+let nameSaveCb = null;
+function openNameModal(title, current, onSave) {
+  document.getElementById("nameModalTitle").textContent = title;
+  const inp = document.getElementById("nameModalInput");
+  inp.value = current || "";
+  nameSaveCb = onSave;
+  nameModal.classList.add("show");
+  setTimeout(() => { inp.focus(); inp.select(); }, 50);
+}
+function closeNameModal() { nameModal.classList.remove("show"); nameSaveCb = null; }
+function confirmNameModal() {
+  const val = document.getElementById("nameModalInput").value.trim();
+  if (!val) { toast("名称不能为空哦～"); return; }
+  const cb = nameSaveCb; closeNameModal(); if (cb) cb(val);
+}
+document.getElementById("nameModalCancel").onclick = closeNameModal;
+document.getElementById("nameModalSave").onclick = confirmNameModal;
+document.getElementById("nameModalInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); confirmNameModal(); }
+});
+nameModal.onclick = (e) => { if (e.target === nameModal) closeNameModal(); };
+
+/* ============ 治理报告 ============ */
+const drawer = document.getElementById("drawer");
+function deptEntries(id) { return store.entries.filter(e => e.dept === id); }
+function withinDays(ts, days) { return (Date.now() - ts) / 86400000 <= days; }
+
+function openReport(id) {
+  const dp = DEPT_MAP[id];
+  const entries = deptEntries(id).sort((a, b) => b.ts - a.ts);
+  const week = entries.filter(e => withinDays(e.ts, 7)).length;
+  const month = entries.filter(e => withinDays(e.ts, 30)).length;
+
+  document.getElementById("drawerTitle").textContent = dp.emoji + " " + dp.name;
+  document.getElementById("drawerSub").textContent = dp.role + " · 治理报告";
+
+  const cards = [];
+  cards.push(card("s", "进展统计", `本周 <b>${week}</b> 条更新，本月 <b>${month}</b> 条，累计 <b>${entries.length}</b> 条。`));
+
+  if (entries.length === 0) {
+    cards.push(card("r", "风险提示", `${dp.name}尚无任何记录，该维度处于完全盲区，建议尽快补充。`));
+  } else {
+    const days = Math.floor((Date.now() - entries[0].ts) / 86400000);
+    if (days >= 14) cards.push(card("r", "风险提示", `已 <b>${days}</b> 天未更新，该维度可能存在盲区，需要关注。`));
+    else if (days >= 7) cards.push(card("g", "数据缺口", `已 ${days} 天没有新记录，建议补充近期情况。`));
+  }
+
+  if (week >= 3) cards.push(card("k", "保持鼓励", `本周更新频繁（${week} 条），该维度状态良好，继续保持。`));
+  else if (week >= 1) cards.push(card("k", "保持鼓励", `本周有 ${week} 条更新，保持节奏即可。`));
+
+  const cross = findCross(id);
+  if (cross) cards.push(card("x", "跨部门关联", cross));
+
+  if (entries.length) {
+    const items = entries.map(e => `<li data-eid="${e.id}"><span class="rec-text">${escapeHtml(e.text)}</span><button class="rec-del" title="删除这条">🗑️</button></li>`).join("");
+    cards.push(`<div class="report-card"><span class="tag s">全部记录（${entries.length}）</span>
+      <ul class="recent">${items}</ul>
+      <button class="btn ghost clear-dept" style="margin-top:8px;font-size:12px">🧹 清空本部门全部记录</button></div>`);
+  }
+
+  const fbs = (store.feedback[id] || []);
+  const fbItems = fbs.map(f => `<li>${escapeHtml(f)}</li>`).join("");
+  cards.push(`<div class="report-card"><span class="tag g">我的反馈</span>
+    <div class="feedback-box"><textarea id="fbInput" rows="2" placeholder="对该部门建议提出你的反馈…"></textarea>
+    <button class="btn" id="fbBtn" style="margin-top:8px">记录反馈</button></div>
+    <ul class="fb-list">${fbItems}</ul></div>`);
+
+  document.getElementById("drawerBody").innerHTML = cards.join("");
+  drawer.classList.add("open");
+
+  const fbBtn = document.getElementById("fbBtn");
+  if (fbBtn) fbBtn.onclick = () => {
+    const v = document.getElementById("fbInput").value.trim();
+    if (!v) return;
+    if (!store.feedback[id]) store.feedback[id] = [];
+    store.feedback[id].unshift(v); save(); openReport(id); toast("反馈已记录");
+  };
+
+  // 逐条删除
+  document.querySelectorAll("#drawerBody .rec-del").forEach(btn => {
+    btn.onclick = () => {
+      const eid = btn.closest("li").dataset.eid;
+      store.entries = store.entries.filter(e => e.id !== eid);
+      save(); render(); renderDashboard(); openReport(id);
+      toast("已删除这条记录");
+    };
+  });
+  // 清空整个部门
+  const clearBtn = document.querySelector("#drawerBody .clear-dept");
+  if (clearBtn) clearBtn.onclick = () => {
+    if (!confirm(`确定要清空「${dp.name}」的全部 ${entries.length} 条记录吗？此操作不可撤销。`)) return;
+    store.entries = store.entries.filter(e => e.dept !== id);
+    save(); render(); renderDashboard(); openReport(id);
+    toast(`已清空 ${dp.name} 的全部记录`);
+  };
+}
+function card(t, title, body) {
+  return `<div class="report-card"><span class="tag ${t}">${title}</span><p>${body}</p></div>`;
+}
+function findCross(id) {
+  const mine = deptEntries(id).filter(e => withinDays(e.ts, 14));
+  if (!mine.length) return null;
+  const myWords = new Set();
+  mine.forEach(e => e.text.split(/[\s，。、,.\n]+/).forEach(w => { if (w.length >= 2) myWords.add(w); }));
+  for (const other of DEPTS) {
+    if (other.id === id) continue;
+    const oe = deptEntries(other.id).filter(e => withinDays(e.ts, 14));
+    for (const e of oe) {
+      for (const w of e.text.split(/[\s，。、,.\n]+/)) {
+        if (w.length >= 2 && myWords.has(w))
+          return `${DEPT_MAP[id].name}与${other.name}近期都提到了「${w}」，这件事横跨多个维度，建议作为重点投入。`;
+      }
+    }
+  }
+  return null;
+}
+document.getElementById("drawerClose").onclick = () => drawer.classList.remove("open");
+
+/* ============ 仪表盘 ============ */
+function healthScore(id) {
+  const entries = deptEntries(id);
+  if (!entries.length) return 0;
+  const week = entries.filter(e => withinDays(e.ts, 7)).length;
+  const freq = Math.min(week / 3, 1) * 70;
+  const days = (Date.now() - Math.max(...entries.map(e => e.ts))) / 86400000;
+  const fresh = Math.max(0, 1 - days / 14) * 30;
+  return Math.round(freq + fresh);
+}
+function renderDashboard() {
+  const g = document.getElementById("gauges");
+  g.innerHTML = "";
+  DEPTS.forEach(d => {
+    const score = healthScore(d.id);
+    const R = 16, C = 2 * Math.PI * R, off = C * (1 - score / 100);
+    const color = score >= 60 ? "var(--good)" : score >= 30 ? "var(--warn)" : "var(--risk)";
+    const el = document.createElement("div");
+    el.className = "gauge";
+    el.innerHTML = `<svg width="44" height="44" viewBox="0 0 44 44">
+      <circle cx="22" cy="22" r="${R}" fill="none" stroke="var(--line)" stroke-width="5"/>
+      <circle cx="22" cy="22" r="${R}" fill="none" stroke="${color}" stroke-width="5"
+        stroke-dasharray="${C}" stroke-dashoffset="${off}" stroke-linecap="round"
+        transform="rotate(-90 22 22)" style="transition:stroke-dashoffset .6s"/>
+      <text x="22" y="26" text-anchor="middle" font-size="11" fill="var(--ink)">${score}</text>
+      </svg><span>${d.emoji} ${d.name.replace("中枢｜","")}</span>`;
+    el.onclick = () => openReport(d.id);
+    g.appendChild(el);
+  });
+  const total = store.entries.length;
+  const week = store.entries.filter(e => withinDays(e.ts, 7)).length;
+  const counts = {};
+  store.entries.filter(e => withinDays(e.ts, 7)).forEach(e => counts[e.dept] = (counts[e.dept]||0)+1);
+  let most = "—", least = "—";
+  const sorted = DEPTS.map(d => ({ id: d.id, n: counts[d.id]||0 })).sort((a,b)=>b.n-a.n);
+  if (total) { most = DEPT_MAP[sorted[0].id].name + `（${sorted[0].n}）`;
+    least = DEPT_MAP[sorted[sorted.length-1].id].name + `（${sorted[sorted.length-1].n}）`; }
+  document.getElementById("stats").innerHTML =
+    `总更新 <b>${total}</b> 条 ｜ 本周 <b>${week}</b> 条 ｜ 最活跃 <b>${most}</b> ｜ 最沉默 <b>${least}</b>`;
+}
+
+/* ============ 施政建议总览 ============ */
+// 基于一个部门的当前数据，给出状态 + 针对性诊断
+function deptDiagnosis(id) {
+  const entries = deptEntries(id).sort((a, b) => b.ts - a.ts);
+  const score = healthScore(id);
+  const week = entries.filter(e => withinDays(e.ts, 7)).length;
+  const month = entries.filter(e => withinDays(e.ts, 30)).length;
+  const dp = DEPT_MAP[id];
+  let state, label, diag;
+  if (entries.length === 0) {
+    state = "risk"; label = "完全盲区";
+    diag = `${dp.name}至今没有任何记录，这块完全没纳入治理。建议这周先随手记一条，让它有个起点。`;
+  } else {
+    const days = Math.floor((Date.now() - entries[0].ts) / 86400000);
+    if (days >= 14) {
+      state = "risk"; label = `沉默 ${days} 天`;
+      diag = `已经 ${days} 天没更新，${dp.name}有荒废的风险。最近一条是「${entries[0].text.slice(0,18)}…」，是时候回头看看它了。`;
+    } else if (week === 0) {
+      state = "warn"; label = "本周空白";
+      diag = `本月有 ${month} 条，但本周还没动静。别让上周的势头断掉，这周补一条吧。`;
+    } else if (week >= 3) {
+      state = "good"; label = `本周活跃 ${week} 条`;
+      diag = `本周 ${week} 条更新，${dp.name}状态很好！注意别只顾数量，回看一下这些投入是否在往年度主线靠。`;
+    } else {
+      state = "warn"; label = `本周 ${week} 条`;
+      diag = `本周有 ${week} 条更新，节奏平稳。可以再推进一步，让它更有连续性。`;
+    }
+  }
+  return { state, label, score, diag, entries };
+}
+
+const advicePage = document.getElementById("advice-page");
+function openAdvice() {
+  const total = store.entries.length;
+  const risk = DEPTS.slice(1).filter(d => deptDiagnosis(d.id).state === "risk").length;
+  document.getElementById("adviceSummary").innerHTML = total === 0
+    ? "系统还没有任何数据。先在主界面记几条，这里就会给出每个部门基于你当前情况的施政建议。"
+    : `共 ${total} 条记录。下面是 6 个部门基于<b>当前情况</b>的诊断与建议${risk ? `，其中 <b style="color:var(--risk)">${risk}</b> 个部门需要重点关注` : "，整体状态不错"}。年度主线：${store.mainline ? `「${store.mainline}」` : "（尚未设定）"}`;
+
+  const grid = document.getElementById("adviceGrid");
+  grid.innerHTML = DEPTS.slice(1).map(d => {
+    const dg = deptDiagnosis(d.id);
+    const ext = EXTEND[d.id] || EXTEND.center;
+    const R = 15, C = 2 * Math.PI * R, off = C * (1 - dg.score / 100);
+    const ringColor = dg.score >= 60 ? "var(--good)" : dg.score >= 30 ? "var(--warn)" : "var(--risk)";
+    const acts = ext.actions.map(a => `<li>${a}</li>`).join("");
+    return `<div class="adv-card" data-id="${d.id}">
+      <div class="adv-top">
+        <span class="adv-emoji">${d.emoji}</span>
+        <div><div class="adv-name">${d.name}</div><div class="adv-role">${d.role}</div></div>
+        <svg class="adv-ring" width="40" height="40" viewBox="0 0 40 40">
+          <circle cx="20" cy="20" r="${R}" fill="none" stroke="var(--line)" stroke-width="5"/>
+          <circle cx="20" cy="20" r="${R}" fill="none" stroke="${ringColor}" stroke-width="5"
+            stroke-dasharray="${C}" stroke-dashoffset="${off}" stroke-linecap="round" transform="rotate(-90 20 20)"/>
+          <text x="20" y="24" text-anchor="middle" font-size="10" fill="var(--ink)">${dg.score}</text>
+        </svg>
+      </div>
+      <span class="adv-state ${dg.state}">${dg.label}</span>
+      <div class="adv-review">💬 ${dg.diag}</div>
+      <ul class="adv-actions">${acts}</ul>
+      <button class="btn adv-adopt" data-id="${d.id}">✨ 采纳建议为下一步</button>
+    </div>`;
+  }).join("");
+
+  // 点卡片打开该部门报告；点"采纳"走延伸面板
+  grid.querySelectorAll(".adv-adopt").forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      closeAdvice();
+      showExtendFromAdvice(id);
+    };
+  });
+  grid.querySelectorAll(".adv-card").forEach(card => {
+    card.onclick = () => { const id = card.dataset.id; closeAdvice(); openReport(id); };
+  });
+
+  advicePage.classList.add("show");
+}
+function closeAdvice() { advicePage.classList.remove("show"); }
+document.getElementById("adviceBtn").onclick = openAdvice;
+document.getElementById("adviceClose").onclick = closeAdvice;
+// 从建议页直接把某部门的建议下一步丢进延伸审批面板
+function showExtendFromAdvice(id) {
+  const ext = EXTEND[id] || EXTEND.center;
+  const dp = DEPT_MAP[id];
+  extDept = id;
+  document.getElementById("extendTitle").textContent = `${dp.emoji} ${dp.name} · 延伸建议`;
+  document.getElementById("extendSub").innerHTML = `把 ${dp.name} 当前建议的下一步纳入系统👇`;
+  document.getElementById("extendReview").innerHTML = `💬 ${ext.review}`;
+  extItems = ext.actions.map(a => ({ id: uid(), text: a, dept: id, on: false }));
+  renderExtItems();
+  extendOverlay.classList.add("show");
+}
+
+/* ============ 复盘（周/月/季/年） & 目标 ============ */
+const PERIODS = {
+  week:    { label: "周",   title: "本周", next: "下周" },
+  month:   { label: "月",   title: "本月", next: "下月" },
+  quarter: { label: "季",   title: "本季", next: "下季" },
+  year:    { label: "年",   title: "本年", next: "明年" },
+};
+
+// 自然周期的起点（周一/月初/季初/年初 的 0 点）
+function periodStart(period) {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // 今天0点
+  if (period === "week") {
+    const wd = (d.getDay() + 6) % 7;          // 周一=0 … 周日=6
+    d.setDate(d.getDate() - wd);
+    return d;
+  }
+  if (period === "month") return new Date(now.getFullYear(), now.getMonth(), 1);
+  if (period === "quarter") return new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+  if (period === "year") return new Date(now.getFullYear(), 0, 1);
+  return d;
+}
+function fmtDate(dt) { return `${dt.getMonth() + 1}月${dt.getDate()}日`; }
+
+function doReview(period) {
+  const P = PERIODS[period];
+  const start = periodStart(period).getTime();
+  const list = store.entries.filter(e => e.ts >= start);
+  const counts = {};
+  list.forEach(e => counts[e.dept] = (counts[e.dept]||0)+1);
+  const active = DEPTS.filter(d => counts[d.id]).sort((a,b)=>counts[b.id]-counts[a.id]);
+  const silent = DEPTS.filter(d => !counts[d.id] && d.id !== "center");
+  const goal = (store.goals && store.goals[period]) || "";
+  const range = `${fmtDate(new Date(start))} ～ 今天`;
+
+  let txt = `【${P.title}复盘】（${range}）\n${P.title}共记录 ${list.length} 条更新。\n`;
+  if (active.length) txt += `活跃维度：${active.map(d=>d.name.replace("中枢｜","")+`(${counts[d.id]})`).join("、")}。\n`;
+  if (silent.length) txt += `沉默维度：${silent.map(d=>d.name.replace("中枢｜","")).join("、")}，建议${P.next}补充关注。\n`;
+  if (goal) txt += `\n📌 ${P.label}目标：「${goal}」\n对照这个目标，${P.title}的投入有没有在向它靠拢？哪些做到了、哪些还差？\n`;
+  else txt += `\n你还没设定${P.label}目标。点右上角「目标 ▾ → ${P.label}目标」定一个，复盘会更有方向感。\n`;
+  if (store.mainline) txt += `年度主线「${store.mainline}」——${P.title}的努力是否在为它积累？`;
+
+  document.getElementById("drawerTitle").textContent = "👑 中枢｜办公厅";
+  document.getElementById("drawerSub").textContent = `${P.label}复盘报告 · ${range}`;
+  document.getElementById("drawerBody").innerHTML =
+    `<div class="report-card"><span class="tag s">${P.title}总结</span><p style="white-space:pre-line">${escapeHtml(txt)}</p></div>`;
+  drawer.classList.add("open");
+}
+
+// 设置目标
+function setGoal(period) {
+  const P = PERIODS[period];
+  const cur = (store.goals && store.goals[period]) || "";
+  openGoalModal(P.label, cur, (val) => {
+    if (!store.goals) store.goals = {};
+    if (val) store.goals[period] = val; else delete store.goals[period];
+    save();
+    toast(val ? `已设定${P.label}目标 🎯` : `已清空${P.label}目标`);
+  });
+}
+
+/* 下拉按钮交互 */
+document.querySelectorAll(".dropdown").forEach(dd => {
+  const trigger = dd.querySelector(".btn");
+  trigger.onclick = (e) => {
+    e.stopPropagation();
+    const wasOpen = dd.classList.contains("open");
+    document.querySelectorAll(".dropdown").forEach(x => x.classList.remove("open"));
+    if (!wasOpen) dd.classList.add("open");
+  };
+});
+document.addEventListener("click", () => document.querySelectorAll(".dropdown").forEach(x => x.classList.remove("open")));
+document.querySelectorAll("#reviewDrop .dropdown-menu button").forEach(b => {
+  b.onclick = () => { document.getElementById("reviewDrop").classList.remove("open"); doReview(b.dataset.period); };
+});
+document.querySelectorAll("#goalDrop .dropdown-menu button").forEach(b => {
+  b.onclick = () => { document.getElementById("goalDrop").classList.remove("open"); setGoal(b.dataset.period); };
+});
+
+/* 目标设置弹窗 */
+const goalModal = document.getElementById("goal-modal");
+let goalSaveCb = null;
+function openGoalModal(label, current, onSave) {
+  document.getElementById("goalModalTitle").textContent = `🎯 设定${label}目标`;
+  document.getElementById("goalModalHint").textContent = `写下你${label}内想达成的目标，做${label}复盘时系统会用它来对照检查。留空保存则清除该目标。`;
+  const ta = document.getElementById("goalModalInput");
+  ta.value = current || "";
+  goalSaveCb = onSave;
+  goalModal.classList.add("show");
+  setTimeout(() => ta.focus(), 50);
+}
+function closeGoalModal() { goalModal.classList.remove("show"); goalSaveCb = null; }
+document.getElementById("goalModalCancel").onclick = closeGoalModal;
+document.getElementById("goalModalSave").onclick = () => {
+  const val = document.getElementById("goalModalInput").value.trim();
+  if (goalSaveCb) goalSaveCb(val);
+  closeGoalModal();
+};
+goalModal.onclick = (e) => { if (e.target === goalModal) closeGoalModal(); };
+
+/* ============ 输入提交 ============ */
+const entryInput = document.getElementById("entryInput");
+entryInput.addEventListener("input", () => { entryInput.style.height = "auto"; entryInput.style.height = entryInput.scrollHeight + "px"; });
+entryInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitEntry(); }
+});
+document.getElementById("submitBtn").onclick = submitEntry;
+
+function submitEntry() {
+  const text = entryInput.value.trim();
+  if (!text) return;
+  const dept = classify(text);
+  if (dept) commitEntry(text, dept);
+  else openModal(text);
+}
+function commitEntry(text, dept) {
+  const id = addEntry(text, dept);
+  save();
+  entryInput.value = ""; entryInput.style.height = "auto";
+  highlightNew([id]);
+  renderDashboard();
+  toast(`${DEPT_MAP[dept].emoji} 已记入 ${DEPT_MAP[dept].name}～`);
+  showExtend(text, dept);   // 弹出延伸：点评 + 下一步建议
+}
+function addEntry(text, dept) {
+  const id = uid();
+  store.entries.push({ id, text, dept, ts: Date.now() });
+  return id;
+}
+// 高亮刚加入的节点，并自动展开它们所属的部门
+function highlightNew(ids) {
+  justAdded = new Set(ids);
+  // 展开这些记录所在的部门，这样新节点才看得见
+  store.entries.filter(e => ids.includes(e.id)).forEach(e => openDepts.add(e.dept));
+  render();
+  // 4秒后只去掉金色高亮样式，不重建图
+  setTimeout(() => {
+    justAdded = new Set();
+    if (!nodeSel) return;
+    nodeSel.filter(d => d.type === "sub").select("circle")
+      .attr("class", "").attr("fill", "var(--accent)")
+      .attr("stroke", "#fff").attr("stroke-width", 2.5);
+  }, 4000);
+}
+
+/* ============ 上传笔记 → 议案审批 ============ */
+const fileInput = document.getElementById("fileInput");
+document.getElementById("uploadBtn").onclick = () => fileInput.click();
+fileInput.onchange = () => { if (fileInput.files.length) readFiles(fileInput.files); fileInput.value = ""; };
+
+// 拖拽上传到输入条
+const inputbar = document.getElementById("inputbar");
+["dragover","dragenter"].forEach(ev => inputbar.addEventListener(ev, e => { e.preventDefault(); inputbar.classList.add("upload-drag"); }));
+["dragleave","drop"].forEach(ev => inputbar.addEventListener(ev, e => { e.preventDefault(); inputbar.classList.remove("upload-drag"); }));
+inputbar.addEventListener("drop", e => { const fs = e.dataTransfer.files; if (fs && fs.length) readFiles(fs); });
+
+function readFiles(fileList) {
+  const files = Array.from(fileList).filter(f => /\.(txt|md|markdown)$/i.test(f.name) || f.type === "text/plain");
+  if (!files.length) { toast("只支持 txt / md 文本笔记哦～"); return; }
+  let texts = [], done = 0;
+  files.forEach(f => {
+    const r = new FileReader();
+    r.onload = () => {
+      texts.push({ name: f.name, content: r.result });
+      if (++done === files.length) buildProposals(texts);
+    };
+    r.readAsText(f);
+  });
+}
+
+// 把笔记拆成候选议案
+function splitNote(content) {
+  return content
+    .split(/\n+/)
+    .filter(line => !/^\s*#{1,6}\s/.test(line) && !/^\s*(第[一二三四五六七八九十\d]+[章节]|chapter)/i.test(line)) // 跳过标题行
+    .flatMap(line => line.split(/(?<=[。！？.!?])\s*/)) // 再按句末标点
+    .map(s => s.replace(/^[\s\-\*•·\d.、)）\]】>#]+/, "").trim()) // 去掉列表符号/标题号
+    .filter(s => s.length >= 6 && s.length <= 120); // 太短太长的丢掉
+}
+
+let proposals = [];
+function buildProposals(texts) {
+  proposals = [];
+  for (const t of texts) {
+    for (const line of splitNote(t.content)) {
+      const dept = classify(line) || "center";
+      proposals.push({ id: uid(), text: line, dept, on: true, src: t.name });
+    }
+  }
+  // 去重
+  const seen = new Set();
+  proposals = proposals.filter(p => { const k = p.text; if (seen.has(k)) return false; seen.add(k); return true; });
+  if (!proposals.length) { toast("没从笔记里提取到可用的句子～"); return; }
+  openReview(texts.map(t => t.name));
+}
+
+const reviewOverlay = document.getElementById("review-overlay");
+function openReview(names) {
+  document.getElementById("reviewSub").innerHTML =
+    `已读取 <b>${names.join("、")}</b>，我从中挑出了 <b>${proposals.length}</b> 条可能值得纳入系统的事项。<br/>请勾选你认可的、调整归属部门，确认后才会真正加入。`;
+  renderProposals();
+  reviewOverlay.classList.add("show");
+}
+function renderProposals() {
+  const list = document.getElementById("reviewList");
+  const optHtml = DEPTS.map(d => `<option value="${d.id}">${d.emoji} ${d.name.replace("中枢｜","")}</option>`).join("");
+  list.innerHTML = proposals.map(p => `
+    <div class="prop ${p.on ? "" : "off"}" data-id="${p.id}">
+      <input type="checkbox" class="chk" ${p.on ? "checked" : ""} />
+      <div class="prop-body">
+        <textarea class="prop-text" rows="1">${escapeHtml(p.text)}</textarea>
+        <div class="prop-meta">
+          <label>归属</label>
+          <select class="prop-dept">${optHtml}</select>
+          <button class="prop-del" title="删除这条">🗑️</button>
+        </div>
+      </div>
+    </div>`).join("");
+  // 绑定
+  list.querySelectorAll(".prop").forEach(el => {
+    const id = el.dataset.id, p = proposals.find(x => x.id === id);
+    const sel = el.querySelector(".prop-dept"); sel.value = p.dept;
+    const ta = el.querySelector(".prop-text");
+    ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px";
+    el.querySelector(".chk").onchange = e => { p.on = e.target.checked; el.classList.toggle("off", !p.on); updateCount(); };
+    sel.onchange = e => p.dept = e.target.value;
+    ta.oninput = e => { p.text = e.target.value; ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; };
+    el.querySelector(".prop-del").onclick = () => { proposals = proposals.filter(x => x.id !== id); renderProposals(); };
+  });
+  updateCount();
+}
+function updateCount() {
+  const n = proposals.filter(p => p.on).length;
+  document.getElementById("reviewCount").textContent = `已选 ${n} / ${proposals.length} 条`;
+}
+document.getElementById("reviewClose").onclick = () => reviewOverlay.classList.remove("show");
+document.getElementById("reviewCancel").onclick = () => reviewOverlay.classList.remove("show");
+reviewOverlay.onclick = e => { if (e.target === reviewOverlay) reviewOverlay.classList.remove("show"); };
+document.getElementById("reviewConfirm").onclick = () => {
+  const chosen = proposals.filter(p => p.on && p.text.trim());
+  if (!chosen.length) { toast("还没勾选任何事项哦～"); return; }
+  const ids = chosen.map(p => addEntry(p.text.trim(), p.dept));
+  save();
+  renderDashboard();
+  reviewOverlay.classList.remove("show");
+  highlightNew(ids);
+  // 按部门汇总，告诉用户加到了哪
+  const byDept = {};
+  chosen.forEach(p => byDept[p.dept] = (byDept[p.dept] || 0) + 1);
+  const summary = Object.keys(byDept).map(id => `${DEPT_MAP[id].emoji}${DEPT_MAP[id].name.replace("中枢｜","")} ${byDept[id]}条`).join("、");
+  toast(`🎉 已采纳 ${chosen.length} 条 → ${summary}`);
+};
+
+/* ============ 延伸进度面板 ============ */
+const extendOverlay = document.getElementById("extend-overlay");
+let extItems = [];        // 当前延伸的下一步候选
+let extDept = "center";
+function showExtend(text, dept) {
+  const ext = genExtend(text, dept);
+  extDept = dept;
+  const dp = DEPT_MAP[dept];
+  document.getElementById("extendTitle").textContent = `${dp.emoji} ${dp.name} · 延伸建议`;
+  document.getElementById("extendSub").innerHTML =
+    `系统判断这条属于 <b>${dp.name}</b>，并为你延伸出下面的下一步👇`;
+  document.getElementById("extendReview").innerHTML = `💬 ${ext.review}`;
+  extItems = ext.actions.map(a => ({ id: uid(), text: a, dept, on: false }));
+  renderExtItems();
+  extendOverlay.classList.add("show");
+}
+function renderExtItems() {
+  const list = document.getElementById("extendList");
+  const optHtml = DEPTS.map(d => `<option value="${d.id}">${d.emoji} ${d.name.replace("中枢｜","")}</option>`).join("");
+  list.innerHTML = extItems.map(p => `
+    <div class="prop ${p.on ? "" : "off"}" data-id="${p.id}">
+      <input type="checkbox" class="chk" ${p.on ? "checked" : ""} />
+      <div class="prop-body">
+        <textarea class="prop-text" rows="1">${escapeHtml(p.text)}</textarea>
+        <div class="prop-meta">
+          <label>归属</label>
+          <select class="prop-dept">${optHtml}</select>
+          <button class="prop-del" title="删除这条">🗑️</button>
+        </div>
+      </div>
+    </div>`).join("");
+  list.querySelectorAll(".prop").forEach(el => {
+    const id = el.dataset.id, p = extItems.find(x => x.id === id);
+    const sel = el.querySelector(".prop-dept"); sel.value = p.dept;
+    const ta = el.querySelector(".prop-text");
+    ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px";
+    el.querySelector(".chk").onchange = e => { p.on = e.target.checked; el.classList.toggle("off", !p.on); updateExtCount(); };
+    sel.onchange = e => p.dept = e.target.value;
+    ta.oninput = e => { p.text = e.target.value; ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; };
+    el.querySelector(".prop-del").onclick = () => { extItems = extItems.filter(x => x.id !== id); renderExtItems(); };
+  });
+  updateExtCount();
+}
+function updateExtCount() {
+  const n = extItems.filter(p => p.on).length;
+  document.getElementById("extendCount").textContent = n ? `已选 ${n} 条下一步` : "勾选你想执行的下一步";
+}
+function closeExtend() { extendOverlay.classList.remove("show"); }
+document.getElementById("extendClose").onclick = closeExtend;
+document.getElementById("extendSkip").onclick = closeExtend;
+extendOverlay.onclick = e => { if (e.target === extendOverlay) closeExtend(); };
+document.getElementById("extendConfirm").onclick = () => {
+  const chosen = extItems.filter(p => p.on && p.text.trim());
+  if (!chosen.length) { closeExtend(); return; }
+  const ids = chosen.map(p => addEntry(p.text.trim(), p.dept));
+  save(); renderDashboard(); closeExtend(); highlightNew(ids);
+  toast(`✅ 已把 ${chosen.length} 条下一步纳入系统～`);
+};
+
+/* 手动选择弹窗 */
+const modal = document.getElementById("modal");
+function openModal(text) {
+  document.getElementById("modalText").textContent = `「${text.slice(0,30)}${text.length>30?"…":""}」无法自动判断，请手动选择：`;
+  const grid = document.getElementById("modalGrid");
+  grid.innerHTML = "";
+  DEPTS.forEach(d => {
+    const b = document.createElement("button");
+    b.className = "btn"; b.textContent = d.emoji + " " + d.name.replace("中枢｜","");
+    b.onclick = () => { commitEntry(text, d.id); modal.classList.remove("show"); };
+    grid.appendChild(b);
+  });
+  modal.classList.add("show");
+}
+modal.onclick = (e) => { if (e.target === modal) modal.classList.remove("show"); };
+
+/* ============ toast ============ */
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2200);
+}
+function escapeHtml(s){ return s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+/* ============ 部门悬停提示 ============ */
+const tipEl = document.getElementById("tip");
+function showTip(ev, d) {
+  const n = d.type === "dept" ? store.entries.filter(e => e.dept === d.id).length : 0;
+  const hint = d.type === "dept"
+    ? `👆 单击看报告　·　👆👆 双击${openDepts.has(d.id) ? "收起" : "展开"}　·　🖱️ 右键新建文件夹`
+    : `👆 单击查看治理报告`;
+  tipEl.innerHTML = `<div class="tip-name">${d.emoji} ${d.name}</div>
+    <div class="tip-role">${d.role}</div>
+    <div class="tip-desc">${d.desc || ""}</div>
+    <div class="tip-hint">${hint}</div>`;
+  tipEl.classList.add("show");
+  moveTip(ev);
+}
+function moveTip(ev) {
+  const pad = 16, w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+  let x = ev.clientX + pad, y = ev.clientY + pad;
+  if (x + w > window.innerWidth - 8) x = ev.clientX - w - pad;
+  if (y + h > window.innerHeight - 8) y = ev.clientY - h - pad;
+  tipEl.style.left = x + "px";
+  tipEl.style.top = y + "px";
+}
+function hideTip() { tipEl.classList.remove("show"); }
+
+/* ============ 年度主线 & 主题 ============ */
+const mainlineInput = document.getElementById("mainlineInput");
+mainlineInput.value = store.mainline || "";
+mainlineInput.addEventListener("change", () => { store.mainline = mainlineInput.value.trim(); save(); });
+
+const themeBtn = document.getElementById("themeBtn");
+function applyTheme() {
+  document.documentElement.setAttribute("data-theme", store.theme);
+  themeBtn.textContent = store.theme === "dark" ? "☀️" : "🌙";
+}
+themeBtn.onclick = () => { store.theme = store.theme === "dark" ? "light" : "dark"; save(); applyTheme(); };
+
+/* ============ 视图按钮 & resize ============ */
+document.getElementById("viewBtn").onclick = toggleView;
+let resizeTimer;
+window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
+
+/* ============ 启动 ============ */
+applyTheme();
+render();
+renderDashboard();
+</script>
+</body>
+</html>
